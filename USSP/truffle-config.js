@@ -17,7 +17,12 @@
  * phrase from a file you've .gitignored so it doesn't accidentally become public.
  *
  */
-
+ let ropstenPrivateKey = new Buffer(secret.ropstenPK, "hex");
+ let ropstenWallet = Wallet.fromPrivateKey(ropstenPrivateKey);
+ let ropstenProvider = new HDWalletProvider(
+   ropstenWallet,
+   "https://ropsten.infura.io/v3/***"
+ );
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 // const Wallet = require("ethereumjs-wallet.js");
 
@@ -54,7 +59,7 @@ module.exports = {
      network_id: "5777",       // Any network (default: none)
     },
     matic: {
-      provider: () => new HDWalletProvider("", `https://rpc-mainnet.maticvigil.com/v1/edbbc37d16278eba2fc37463456beb60b3399ee9`),
+      provider: () => new HDWalletProvider(ropstenPK, `https://rpc-mainnet.maticvigil.com/v1/edbbc37d16278eba2fc37463456beb60b3399ee9`),
       network_id: 137,
       confirmations: 2,
       timeoutBlocks: 200,
@@ -72,7 +77,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     ropsten: {
-    provider: () => new HDWalletProvider("", `https://ropsten.infura.io/v3/7f85547a8f414e8cb60d0a9319d7645f`),
+    provider: () => new HDWalletProvider(ropstenPK, `https://ropsten.infura.io/v3/7f85547a8f414e8cb60d0a9319d7645f`),
     network_id: 3,       // Ropsten's id
     gas: 5500000,        // Ropsten has a lower block limit than mainnet
     confirmations: 2,    // # of confs to wait between deployments. (default: 0)

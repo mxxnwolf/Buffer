@@ -17,12 +17,10 @@ contract Lotto is Initializable, AccessControlUpgradeable, PausableUpgradeable, 
     // address internal _VRF = 0x3d2341ADb2D31f1c5530cDC622016af293177AE0;
     // address internal _LINK = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
 
-    address[] public winners;
-    address[] public Pool1;
-    address[] public Pool5;
-    address[] public Pool10;
-    uint[3] public PoolAmounts;
-    bool[3] internal claimed;
+    address public winner;
+    address[] public Pool;
+    uint public PoolAmount;
+    bool internal claimed;
 
     // uint internal _FEE = 0.0001 * 1e18;
     uint public winningNumber;
@@ -85,34 +83,24 @@ contract Lotto is Initializable, AccessControlUpgradeable, PausableUpgradeable, 
         return (uint(1e14) / price) * 1e12; // a dollar in matic
     }
 
-    function getPot(uint _pool) public view returns(uint256){
-        if(_pool == 1) return PoolAmounts[0];
-        else if(_pool == 5) return PoolAmounts[1];
-        else if(_pool == 10) return PoolAmounts[2];
-        else return 0;
+    function getPot() public view returns(uint256){
+        return PoolAmount;
+
     }
 
-    function getPotUSD(uint _pool) public view returns(uint256){
-        return (getPot(_pool)) * getPrice();
+    function getPotUSD() public view returns(uint256){
+        return (getPot()) * getPrice();
     }
 
     function getAnnounceDate() public view returns(uint256){
-        return lotteryPeriod + 1;
+        return lotteryPeriod + 1 days;
     }
 
-    function getPlayerCount(uint _pool) public view returns(uint256){
-        if(_pool == 1){
-            return Pool1.length;
-        }else if(_pool == 5){
-            return Pool5.length;
-        }else if(_pool == 10){
-            return Pool10.length;
-        }else return 0;
+    function getPlayerCount() public view returns(uint256){
+      
+            return Pool.length;
     }
 
-    function getTotalPlayerCount() public view returns(uint256){
-        return Pool1.length + Pool5.length + Pool10.length;
-    }
 
     function startLottery(uint _start, uint _duration) public validate {
         resetLottery();
@@ -124,79 +112,51 @@ contract Lotto is Initializable, AccessControlUpgradeable, PausableUpgradeable, 
     function resetLottery() public validate {
         // startLottery(claimperiod, 5);
         require(block.timestamp > claimperiod, "Cannot reset Lottery before prevoius Claim period end");
-        Pool1 = [address(0)];
-        Pool5 = [address(0)];
-        Pool10 = [address(0)];
-        PoolAmounts = [0,0,0];
-        winners = [address(0)];
+        Pool = [address(0)];
+        PoolAmount = 0;
+        winner = address(0);
     }
 
-    function BuyOneTicket() public payable{
+    function BuyTicket() public payable{
         require(block.timestamp < lotteryPeriod, "Lottery Period Ended: No More buying allowed");
         uint onedollar = getDollar();
         require(msg.value >= onedollar, "Buy Lottery Ticket: Price should be greater than 1 USD");
-        Pool1.push(msg.sender); // Pool1 is the 1 USD pool
-        LottoTickets.safeMint(msg.sender, (Pool1.length * 10) + 0);
-        PoolAmounts[0] = PoolAmounts[0] + msg.value - gasleft();
+        Pool.push(msg.sender); // Pool1 is the 1 USD pool
+        LottoTickets.safeMint(msg.sender, (Pool.length * 10));
+        PoolAmount +=  msg.value - gasleft();
     }
 
-    function BuyFiveTicket() public payable{
-        require(block.timestamp < lotteryPeriod, "Lottery Period Ended: No More buying allowed");
-        uint onedollar = getDollar();
-        require(msg.value >= (onedollar * 5), "Buy Lottery Ticket: Price should be greater than 5 USD");
-        Pool5.push(msg.sender); // Pool5 is the 5 USD pool
-        LottoTickets.safeMint(msg.sender, (Pool5.length * 10) + 1);
-        PoolAmounts[1] = PoolAmounts[1] + msg.value - gasleft();
-    }
-
-    function BuyTenTicket() public payable{
-        require(block.timestamp < lotteryPeriod, "Lottery Period Ended: No More buying allowed");
-        uint onedollar = getDollar();
-        require(msg.value >= (onedollar * 10), "Buy Lottery Ticket: Price should be greater than 10 USD");
-        Pool10.push(msg.sender); // Pool10 is the 10 USD pool
-        LottoTickets.safeMint(msg.sender, (Pool10.length * 10) + 2);
-        PoolAmounts[2] = PoolAmounts[2] + msg.value - gasleft();
-    }
 
     function AnnounceLotteryWinner() public validate{
         require(block.timestamp > lotteryPeriod, "Lottery Period Not Ended: No winners yet");
         require(_win == false, "Cannot Announce winner yet");
         // winningNumber = uint(blockhash(block.number - 1)) % Players.length;
 
-        uint winningOne = uint(blockhash(block.number - 1)) % Pool1.length;
-        uint winningFive = uint(blockhash(block.number - 1)) % Pool5.length;
-        uint winningTen = uint(blockhash(block.number - 1)) % Pool10.length;
-        winners.push(Pool1[winningOne]);
-        winners.push(Pool5[winningFive]);
-        winners.push(Pool10[winningTen]);
+        uint winningOne = uint(blockhash(block.number - 1)) % Pool.length;
+        winner = Pool[winningOne];
         _win = true;
     }
 
     function claim() public {
-        if(_win == false){
-            AnnounceLotteryWinner();
-        }
-
+        require(_win == true);
         require(block.timestamp > lotteryPeriod, "Lottery Period: Still buying tickets");
         require(block.timestamp < claimperiod, "Claim Period: Invalid Claim Period");
         // require(msg.sender == winner, "Error: You are not the winner");
-        require((msg.sender == winners[0]) || (msg.sender == winners[1]) || (msg.sender == winners[2]), "Error: You are not the winner");
+        require((msg.sender == winner) , "Error: You are not the winner");
         
-        uint winnerpot;
-        if(winners[0] == msg.sender){winnerpot = 0;} // 1 USD Pot
-        else if(winners[1] == msg.sender){winnerpot = 1;}  // 5 USD Pot
-        else if(winners[2] == msg.sender){winnerpot = 2;}  // 10 USD Pot
+   
+        if(winner == msg.sender) // 1 USD Pot
 
-        uint poolpot = PoolAmounts[winnerpot];
-        require(claimed[winnerpot] == false, "Claim: Prize already Claimed");
+        uint poolpot = PoolAmount;
+        require(claimed == false, "Claim: Prize already Claimed");
 
         uint cut = poolpot * 5 / 100;
         uint pot = poolpot - cut;
 
         payable(_safe).transfer(cut);
-        payable(winners[winnerpot]).transfer(pot);
+        payable(winner).transfer(pot);
 
-        claimed[winnerpot] = true;
+        claimed = true;
         // _win = false;
     } 
         function _authorizeUpgrade(address newImplementation)
